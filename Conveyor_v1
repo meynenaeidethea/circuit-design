@@ -1,0 +1,100 @@
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
+
+entity conveyor_sorter is
+    port (
+        clk          : in  std_logic;
+        reset        : in  std_logic;
+        item_present : in  std_logic;
+        weight       : in  std_logic_vector(7 downto 0);
+        conveyor_run : out std_logic;
+        reject       : out std_logic
+    );
+end conveyor_sorter;
+
+architecture Behavioral of conveyor_sorter is
+
+    type state_type is (
+        WAIT_STATE,
+        STABILIZE_STATE,
+        CHECK_STATE,
+        REJECT_STATE,
+        RELEASE_STATE
+    );
+
+    signal state : state_type;
+
+    constant M_MIN : unsigned(7 downto 0) := to_unsigned(95, 8);
+    constant M_MAX : unsigned(7 downto 0) := to_unsigned(105, 8);
+
+    constant STABILIZE_TICKS : natural := 4;
+    constant REJECT_TICKS    : natural := 3;
+
+    signal counter : natural range 0 to 15 := 0;
+
+begin
+
+    process(clk, reset)
+    begin
+
+        if reset = '1' then
+            state <= WAIT_STATE;
+            counter <= 0;
+
+        elsif rising_edge(clk) then
+
+            case state is
+
+                when WAIT_STATE =>
+                    counter <= 0;
+
+                    if item_present = '1' then
+                        state <= STABILIZE_STATE;
+                    end if;
+
+                when STABILIZE_STATE =>
+                    if counter = STABILIZE_TICKS - 1 then
+                        counter <= 0;
+                        state <= CHECK_STATE;
+                    else
+                        counter <= counter + 1;
+                    end if;
+
+                when CHECK_STATE =>
+                    if unsigned(weight) >= M_MIN and unsigned(weight) <= M_MAX then
+                        state <= RELEASE_STATE;
+                    else
+                        state <= REJECT_STATE;
+                    end if;
+
+                when REJECT_STATE =>
+                    if counter = REJECT_TICKS - 1 then
+                        counter <= 0;
+                        state <= RELEASE_STATE;
+                    else
+                        counter <= counter + 1;
+                    end if;
+
+                when RELEASE_STATE =>
+                    counter <= 0;
+
+                    if item_present = '0' then
+                        state <= WAIT_STATE;
+                    end if;
+
+            end case;
+
+        end if;
+
+    end process;
+
+    conveyor_run <= '1' when
+        state = WAIT_STATE or state = RELEASE_STATE
+        else '0';
+
+    reject <= '1' when
+        state = REJECT_STATE
+        else '0';
+
+end Behavioral;
