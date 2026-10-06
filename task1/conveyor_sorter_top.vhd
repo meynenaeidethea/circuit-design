@@ -87,7 +87,7 @@ begin
         generic map (
             WEIGHT_MIN          => 95,
             WEIGHT_MAX          => 105,
-            REJECT_PULSE_CYCLES => 5000000
+            REJECT_PULSE_CYCLES => 5_000_000
         )
         port map (
             clk_i         => clk50_i,

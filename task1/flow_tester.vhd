@@ -3,6 +3,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
 entity flow_tester is
+    generic (STEP_CYCLES : positive := 5_000_000);
     port (
         clk_i     : in  std_logic;
         nRst_i    : in  std_logic;
@@ -12,78 +13,43 @@ entity flow_tester is
     );
 end flow_tester;
 
-architecture Behavioral of flow_tester is
-
-    signal position_count : std_logic_vector(3 downto 0);
-
+architecture rtl of flow_tester is
+    signal stepCount_r : natural range 0 to STEP_CYCLES - 1;
+    signal position_r  : natural range 0 to 15;
 begin
-
-    process(clk_i, nRst_i)
+    counter_registers : process(clk_i, nRst_i)
     begin
-
         if nRst_i = '0' then
-
-            position_count <= (others => '0');
-
+            stepCount_r <= 0;
+            position_r  <= 0;
         elsif rising_edge(clk_i) then
-
-            if unsigned(position_count) = 15 then
-                position_count <= (others => '0');
+            if stepCount_r = STEP_CYCLES - 1 then
+                stepCount_r <= 0;
+                if position_r = 15 then
+                    position_r <= 0;
+                else
+                    position_r <= position_r + 1;
+                end if;
             else
-                position_count <= std_logic_vector(unsigned(position_count) + 1);
+                stepCount_r <= stepCount_r + 1;
             end if;
-
         end if;
-
     end process;
 
-    process(position_count)
+    output_logic : process(all)
     begin
-
         sensorA_o <= '0';
         sensorB_o <= '0';
         weight_o  <= (others => '0');
-
-        case to_integer(unsigned(position_count)) is
-
-            when 2 =>
-                sensorA_o <= '1';
-                weight_o  <= std_logic_vector(to_unsigned(20, 8));
-
-            when 3 =>
-                sensorA_o <= '1';
-                weight_o  <= std_logic_vector(to_unsigned(50, 8));
-
-            when 4 =>
-                sensorA_o <= '1';
-                sensorB_o <= '1';
-                weight_o  <= std_logic_vector(to_unsigned(80, 8));
-
-            when 5 =>
-                sensorA_o <= '1';
-                sensorB_o <= '1';
-                weight_o  <= std_logic_vector(to_unsigned(100, 8));
-
-            when 6 =>
-                sensorA_o <= '1';
-                sensorB_o <= '1';
-                weight_o  <= std_logic_vector(to_unsigned(98, 8));
-
-            when 7 =>
-                sensorB_o <= '1';
-                weight_o  <= std_logic_vector(to_unsigned(70, 8));
-
-            when 8 =>
-                sensorB_o <= '1';
-                weight_o  <= std_logic_vector(to_unsigned(30, 8));
-
-            when others =>
-                sensorA_o <= '0';
-                sensorB_o <= '0';
-                weight_o  <= (others => '0');
-
+        case position_r is
+            when 2 => sensorA_o <= '1'; weight_o <= std_logic_vector(to_unsigned(20, weight_o'length));
+            when 3 => sensorA_o <= '1'; weight_o <= std_logic_vector(to_unsigned(50, weight_o'length));
+            when 4 => sensorA_o <= '1'; sensorB_o <= '1'; weight_o <= std_logic_vector(to_unsigned(80, weight_o'length));
+            when 5 => sensorA_o <= '1'; sensorB_o <= '1'; weight_o <= std_logic_vector(to_unsigned(100, weight_o'length));
+            when 6 => sensorA_o <= '1'; sensorB_o <= '1'; weight_o <= std_logic_vector(to_unsigned(98, weight_o'length));
+            when 7 => sensorB_o <= '1'; weight_o <= std_logic_vector(to_unsigned(70, weight_o'length));
+            when 8 => sensorB_o <= '1'; weight_o <= std_logic_vector(to_unsigned(30, weight_o'length));
+            when others => null;
         end case;
-
     end process;
-
-end Behavioral;
+end rtl;
