@@ -24,7 +24,6 @@ architecture rtl of conveyor_sorter is
     type state_type is (WAIT_STATE, MEASURE_STATE, CHECK_STATE, REJECT_STATE, WAIT_CLEAR_STATE);
 
     signal state_r          : state_type;
-    signal nextState_s      : state_type;
     signal previousWeight_r : std_logic_vector(7 downto 0);
     signal measuredWeight_r : std_logic_vector(7 downto 0);
     signal rejectCount_r    : natural range 0 to REJECT_PULSE_CYCLES - 1;
@@ -32,46 +31,40 @@ architecture rtl of conveyor_sorter is
 
 begin
 
-    state_register : process(clk_i, nRst_i)
+    state_transitions : process(clk_i, nRst_i)
     begin
         if nRst_i = '0' then
             state_r <= WAIT_STATE;
         elsif rising_edge(clk_i) then
-            state_r <= nextState_s;
+            case state_r is
+                when WAIT_STATE =>
+                    if sensorA_i = '1' or sensorB_i = '1' then
+                        state_r <= MEASURE_STATE;
+                    end if;
+                when MEASURE_STATE =>
+                    if unsigned(weight_i) < unsigned(previousWeight_r)
+                       and (centerFlag_r = '1' or (sensorA_i = '1' and sensorB_i = '1')) then
+                        state_r <= CHECK_STATE;
+                    elsif sensorA_i = '0' and sensorB_i = '0' and centerFlag_r = '1' then
+                        state_r <= CHECK_STATE;
+                    end if;
+                when CHECK_STATE =>
+                    if to_integer(unsigned(measuredWeight_r)) >= WEIGHT_MIN
+                       and to_integer(unsigned(measuredWeight_r)) <= WEIGHT_MAX then
+                        state_r <= WAIT_CLEAR_STATE;
+                    else
+                        state_r <= REJECT_STATE;
+                    end if;
+                when REJECT_STATE =>
+                    if rejectCount_r = REJECT_PULSE_CYCLES - 1 then
+                        state_r <= WAIT_CLEAR_STATE;
+                    end if;
+                when WAIT_CLEAR_STATE =>
+                    if sensorA_i = '0' and sensorB_i = '0' then
+                        state_r <= WAIT_STATE;
+                    end if;
+            end case;
         end if;
-    end process;
-
-    next_state_logic : process(all)
-    begin
-        nextState_s <= state_r;
-        case state_r is
-            when WAIT_STATE =>
-                if sensorA_i = '1' or sensorB_i = '1' then
-                    nextState_s <= MEASURE_STATE;
-                end if;
-            when MEASURE_STATE =>
-                if unsigned(weight_i) < unsigned(previousWeight_r)
-                   and (centerFlag_r = '1' or (sensorA_i = '1' and sensorB_i = '1')) then
-                    nextState_s <= CHECK_STATE;
-                elsif sensorA_i = '0' and sensorB_i = '0' and centerFlag_r = '1' then
-                    nextState_s <= CHECK_STATE;
-                end if;
-            when CHECK_STATE =>
-                if to_integer(unsigned(measuredWeight_r)) >= WEIGHT_MIN
-                   and to_integer(unsigned(measuredWeight_r)) <= WEIGHT_MAX then
-                    nextState_s <= WAIT_CLEAR_STATE;
-                else
-                    nextState_s <= REJECT_STATE;
-                end if;
-            when REJECT_STATE =>
-                if rejectCount_r = REJECT_PULSE_CYCLES - 1 then
-                    nextState_s <= WAIT_CLEAR_STATE;
-                end if;
-            when WAIT_CLEAR_STATE =>
-                if sensorA_i = '0' and sensorB_i = '0' then
-                    nextState_s <= WAIT_STATE;
-                end if;
-        end case;
     end process;
 
     data_registers : process(clk_i, nRst_i)

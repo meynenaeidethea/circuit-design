@@ -1,5 +1,5 @@
 onerror {abort}
-set source_dir [file normalize [file dirname [info script]]]
+set source_dir [file normalize [pwd]]
 file mkdir [file join $source_dir simulation alternating]
 cd [file join $source_dir simulation alternating]
 if {![file exists work]} {vlib work}
