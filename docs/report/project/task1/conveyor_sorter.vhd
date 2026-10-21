@@ -75,37 +75,36 @@ begin
             rejectCount_r    <= 0;
             centerFlag_r     <= '0';
         elsif rising_edge(clk_i) then
-            case state_r is
-                when WAIT_STATE =>
+            if state_r = WAIT_STATE then
+                previousWeight_r <= weight_i;
+                rejectCount_r    <= 0;
+                centerFlag_r     <= '0';
+            elsif state_r = MEASURE_STATE then
+                if sensorA_i = '1' and sensorB_i = '1' then
+                    centerFlag_r <= '1';
+                end if;
+                if unsigned(weight_i) < unsigned(previousWeight_r)
+                   and (centerFlag_r = '1' or (sensorA_i = '1' and sensorB_i = '1')) then
+                    measuredWeight_r <= previousWeight_r;
+                elsif sensorA_i = '0' and sensorB_i = '0' and centerFlag_r = '1' then
+                    measuredWeight_r <= previousWeight_r;
+                else
                     previousWeight_r <= weight_i;
-                    rejectCount_r    <= 0;
-                    centerFlag_r     <= '0';
-                when MEASURE_STATE =>
-                    if sensorA_i = '1' and sensorB_i = '1' then
-                        centerFlag_r <= '1';
-                    end if;
-                    if unsigned(weight_i) < unsigned(previousWeight_r)
-                       and (centerFlag_r = '1' or (sensorA_i = '1' and sensorB_i = '1')) then
-                        measuredWeight_r <= previousWeight_r;
-                    elsif sensorA_i = '0' and sensorB_i = '0' and centerFlag_r = '1' then
-                        measuredWeight_r <= previousWeight_r;
-                    else
-                        previousWeight_r <= weight_i;
-                    end if;
-                when CHECK_STATE =>
-                    if to_integer(unsigned(measuredWeight_r)) < WEIGHT_MIN
-                       or to_integer(unsigned(measuredWeight_r)) > WEIGHT_MAX then
-                        rejectCount_r <= 0;
-                    end if;
-                when REJECT_STATE =>
-                    if rejectCount_r = REJECT_PULSE_CYCLES - 1 then
-                        rejectCount_r <= 0;
-                    else
-                        rejectCount_r <= rejectCount_r + 1;
-                    end if;
-                when WAIT_CLEAR_STATE =>
-                    null;
-            end case;
+                end if;
+            elsif state_r = CHECK_STATE then
+                if to_integer(unsigned(measuredWeight_r)) < WEIGHT_MIN
+                   or to_integer(unsigned(measuredWeight_r)) > WEIGHT_MAX then
+                    rejectCount_r <= 0;
+                end if;
+            elsif state_r = REJECT_STATE then
+                if rejectCount_r = REJECT_PULSE_CYCLES - 1 then
+                    rejectCount_r <= 0;
+                else
+                    rejectCount_r <= rejectCount_r + 1;
+                end if;
+            elsif state_r = WAIT_CLEAR_STATE then
+                null;
+            end if;
         end if;
     end process;
 
