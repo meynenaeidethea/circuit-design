@@ -18,55 +18,43 @@ architecture rtl of flow_tester is
     signal position_r : natural range 0 to 15;
     signal rejectProduct_r : std_logic;
 begin
-    step_count_register : process(clk_i, nRst_i)
+    counter_registers : process(clk_i, nRst_i)
     begin
         if nRst_i = '0' then
             stepCount_r <= 0;
-        elsif rising_edge(clk_i) and stepCount_r = STEP_CYCLES - 1 then
-            stepCount_r <= 0;
-        elsif rising_edge(clk_i) then
-            stepCount_r <= stepCount_r + 1;
-        end if;
-    end process;
-
-    position_register : process(clk_i, nRst_i)
-    begin
-        if nRst_i = '0' then
             position_r <= 0;
-        elsif rising_edge(clk_i) and stepCount_r = STEP_CYCLES - 1 and position_r = 15 then
-            position_r <= 0;
-        elsif rising_edge(clk_i) and stepCount_r = STEP_CYCLES - 1 then
-            position_r <= position_r + 1;
-        end if;
-    end process;
-
-    reject_product_register : process(clk_i, nRst_i)
-    begin
-        if nRst_i = '0' then
             rejectProduct_r <= '0';
-        elsif rising_edge(clk_i) and stepCount_r = STEP_CYCLES - 1 and position_r = 15 then
-            rejectProduct_r <= not rejectProduct_r;
+        elsif rising_edge(clk_i) then
+            if stepCount_r = STEP_CYCLES - 1 then
+                stepCount_r <= 0;
+            else
+                stepCount_r <= stepCount_r + 1;
+            end if;
+
+            if stepCount_r = STEP_CYCLES - 1 and position_r = 15 then
+                position_r <= 0;
+            elsif stepCount_r = STEP_CYCLES - 1 then
+                position_r <= position_r + 1;
+            end if;
+
+            if stepCount_r = STEP_CYCLES - 1 and position_r = 15 then
+                rejectProduct_r <= not rejectProduct_r;
+            end if;
         end if;
     end process;
 
-    sensor_a_logic : process(all)
+    output_logic : process(all)
     begin
         sensorA_o <= '0';
         if position_r = 2 or position_r = 3 or position_r = 4 or position_r = 5 or position_r = 6 then
             sensorA_o <= '1';
         end if;
-    end process;
 
-    sensor_b_logic : process(all)
-    begin
         sensorB_o <= '0';
         if position_r = 4 or position_r = 5 or position_r = 6 or position_r = 7 or position_r = 8 then
             sensorB_o <= '1';
         end if;
-    end process;
 
-    weight_logic : process(all)
-    begin
         weight_o <= (others => '0');
         if position_r = 2 then
             weight_o <= std_logic_vector(to_unsigned(20, weight_o'length));
