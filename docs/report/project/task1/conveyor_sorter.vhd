@@ -1,11 +1,11 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
-use IEEE.NUMERIC_STD.ALL;
+use IEEE.STD_LOGIC_UNSIGNED.ALL;
 
 entity conveyor_sorter is
     generic (
-        WEIGHT_MIN          : natural  := 95;
-        WEIGHT_MAX          : natural  := 105;
+        WEIGHT_MIN          : natural range 0 to 255 := 95;
+        WEIGHT_MAX          : natural range 0 to 255 := 105;
         REJECT_PULSE_CYCLES : positive := 5_000_000
     );
     port (
@@ -31,6 +31,9 @@ architecture rtl of conveyor_sorter is
 
 begin
 
+    assert WEIGHT_MIN <= WEIGHT_MAX
+        report "WEIGHT_MIN must not exceed WEIGHT_MAX" severity failure;
+
     state_transitions : process(clk_i, nRst_i)
     begin
         if nRst_i = '0' then
@@ -42,21 +45,20 @@ begin
                         state_r <= MEASURE_STATE;
                     end if;
                 when MEASURE_STATE =>
-                    if unsigned(weight_i) < unsigned(previousWeight_r)
+                    if weight_i < previousWeight_r
                        and (centerFlag_r = '1' or (sensorA_i = '1' and sensorB_i = '1')) then
                         state_r <= CHECK_STATE;
                     elsif sensorA_i = '0' and sensorB_i = '0' and centerFlag_r = '1' then
                         state_r <= CHECK_STATE;
                     end if;
                 when CHECK_STATE =>
-                    if to_integer(unsigned(measuredWeight_r)) >= WEIGHT_MIN
-                       and to_integer(unsigned(measuredWeight_r)) <= WEIGHT_MAX then
+                    if measuredWeight_r >= WEIGHT_MIN and measuredWeight_r <= WEIGHT_MAX then
                         state_r <= WAIT_CLEAR_STATE;
                     else
                         state_r <= REJECT_STATE;
                     end if;
                 when REJECT_STATE =>
-                    if rejectCount_r = REJECT_PULSE_CYCLES - 1 then
+                    if rejectCount_r = 0 then
                         state_r <= WAIT_CLEAR_STATE;
                     end if;
                 when WAIT_CLEAR_STATE =>
@@ -78,29 +80,25 @@ begin
             if state_r = WAIT_STATE then
                 previousWeight_r <= weight_i;
             elsif state_r = MEASURE_STATE
-               and not ((unsigned(weight_i) < unsigned(previousWeight_r)
+               and not ((weight_i < previousWeight_r
                          and (centerFlag_r = '1' or (sensorA_i = '1' and sensorB_i = '1')))
                         or (sensorA_i = '0' and sensorB_i = '0' and centerFlag_r = '1')) then
                 previousWeight_r <= weight_i;
             end if;
 
             if state_r = MEASURE_STATE
-               and ((unsigned(weight_i) < unsigned(previousWeight_r)
+               and ((weight_i < previousWeight_r
                      and (centerFlag_r = '1' or (sensorA_i = '1' and sensorB_i = '1')))
                     or (sensorA_i = '0' and sensorB_i = '0' and centerFlag_r = '1')) then
                 measuredWeight_r <= previousWeight_r;
             end if;
 
-            if state_r = WAIT_STATE then
-                rejectCount_r <= 0;
-            elsif state_r = CHECK_STATE
-               and (to_integer(unsigned(measuredWeight_r)) < WEIGHT_MIN
-                    or to_integer(unsigned(measuredWeight_r)) > WEIGHT_MAX) then
-                rejectCount_r <= 0;
-            elsif state_r = REJECT_STATE and rejectCount_r = REJECT_PULSE_CYCLES - 1 then
-                rejectCount_r <= 0;
-            elsif state_r = REJECT_STATE then
-                rejectCount_r <= rejectCount_r + 1;
+            -- Entry to REJECT_STATE starts the first of N active cycles.
+            -- Loading N-1 also handles N=1 without underflow or an extra cycle.
+            if state_r = CHECK_STATE then
+                rejectCount_r <= REJECT_PULSE_CYCLES - 1;
+            elsif state_r = REJECT_STATE and rejectCount_r /= 0 then
+                rejectCount_r <= rejectCount_r - 1;
             end if;
 
             if state_r = WAIT_STATE then
@@ -111,13 +109,7 @@ begin
         end if;
     end process;
 
-    output_logic : process(all)
-    begin
-        conveyorRun_o <= '1';
-        reject_o <= '0';
-        if state_r = REJECT_STATE then
-            reject_o <= '1';
-        end if;
-    end process;
+    conveyorRun_o <= '1';
+    reject_o <= '1' when state_r = REJECT_STATE else '0';
 
 end rtl;

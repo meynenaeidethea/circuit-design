@@ -17,3 +17,7 @@ work/
 work-obj*.cf
 modelsim.ini
 transcript
+*.done
+*.jdi
+*.pin
+*.sld

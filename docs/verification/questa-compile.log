@@ -1,0 +1,25 @@
+Questa Altera Starter FPGA Edition-64 vcom 2025.2 Compiler 2025.05 May 31 2025
+Start time: 13:48:58 on Oct 27,2026
+vcom -2008 -work /tmp/circuit-questa-work task1/conveyor_sorter.vhd task1/flow_tester.vhd task1/conveyor_sorter_top.vhd task1/qmtech_demo_top.vhd task1/struct_tb.vhd task1/flow_tester_tb.vhd 
+** Note: (vcom-220) '/home/x/altera/25.1std/questa_fse/linux_x86_64/../modelsim.ini' is used as the ini file.
+-- Loading package STANDARD
+-- Loading package TEXTIO
+-- Loading package std_logic_1164
+-- Loading package std_logic_arith
+-- Loading package STD_LOGIC_UNSIGNED
+-- Compiling entity conveyor_sorter
+-- Compiling architecture rtl of conveyor_sorter
+-- Compiling entity flow_tester
+-- Compiling architecture rtl of flow_tester
+-- Compiling entity conveyor_sorter_top
+-- Compiling architecture Structural of conveyor_sorter_top
+-- Loading entity conveyor_sorter
+-- Compiling entity qmtech_demo_top
+-- Compiling architecture structural of qmtech_demo_top
+-- Loading entity flow_tester
+-- Compiling entity struct_tb
+-- Compiling architecture simulation of struct_tb
+-- Compiling entity flow_tester_tb
+-- Compiling architecture simulation of flow_tester_tb
+End time: 13:48:58 on Oct 27,2026, Elapsed time: 0:00:00
+Errors: 0, Warnings: 0

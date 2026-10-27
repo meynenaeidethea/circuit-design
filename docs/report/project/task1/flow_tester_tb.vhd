@@ -1,22 +1,29 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
-use IEEE.NUMERIC_STD.ALL;
-use STD.ENV.ALL;
+use IEEE.STD_LOGIC_UNSIGNED.ALL;
 
 entity flow_tester_tb is
+    generic (STEP_CYCLES : positive := 8);
 end flow_tester_tb;
 
 architecture simulation of flow_tester_tb is
     constant CLOCK_PERIOD : time := 20 ns;
-    constant STEP_CYCLES : positive := 8;
     constant REJECT_CYCLES : positive := 3;
+    signal done_s : boolean := false;
     signal clk_s : std_logic := '0';
     signal nRst_s : std_logic := '0';
     signal sensorA_s, sensorB_s, conveyorRun_s, reject_s : std_logic;
     signal weight_s : std_logic_vector(7 downto 0);
     signal rejectPulses_s : natural := 0;
 begin
-    clk_s <= not clk_s after CLOCK_PERIOD / 2;
+    clock_generator : process
+    begin
+        while not done_s loop
+            clk_s <= '0'; wait for CLOCK_PERIOD / 2;
+            clk_s <= '1'; wait for CLOCK_PERIOD / 2;
+        end loop;
+        wait;
+    end process;
 
     generator_inst : entity work.flow_tester
         generic map (STEP_CYCLES => STEP_CYCLES)
@@ -56,6 +63,13 @@ begin
         end if;
     end process;
 
+    watchdog : process
+    begin
+        wait until done_s for 1 ms;
+        assert done_s report "flow_tester_tb timeout" severity failure;
+        wait;
+    end process;
+
     stimulus : process
         procedure tick is
         begin
@@ -65,6 +79,11 @@ begin
 
         procedure check_product(productIndex : natural) is
             variable expectedPeak_v : natural;
+            variable position_v : natural;
+            variable expectedWeight_v : natural;
+            type profile_type is array (0 to 15) of natural;
+            constant VALID_PROFILE : profile_type := (0, 0, 20, 50, 80, 100, 98, 70, 30, 0, 0, 0, 0, 0, 0, 0);
+            constant INVALID_PROFILE : profile_type := (0, 0, 20, 30, 60, 80, 78, 50, 30, 0, 0, 0, 0, 0, 0, 0);
         begin
             if productIndex mod 2 = 0 then
                 expectedPeak_v := 100;
@@ -73,10 +92,28 @@ begin
             end if;
             for cycle in 1 to 16 * STEP_CYCLES loop
                 tick;
+                position_v := (cycle / STEP_CYCLES) mod 16;
+                if productIndex mod 2 = 0 then
+                    expectedWeight_v := VALID_PROFILE(position_v);
+                else
+                    expectedWeight_v := INVALID_PROFILE(position_v);
+                end if;
+                assert conv_integer(weight_s) = expectedWeight_v
+                    report "Weight profile differs at a clock edge" severity failure;
+                if position_v >= 2 and position_v <= 6 then
+                    assert sensorA_s = '1' report "Sensor A missing" severity failure;
+                else
+                    assert sensorA_s = '0' report "Unexpected sensor A" severity failure;
+                end if;
+                if position_v >= 4 and position_v <= 8 then
+                    assert sensorB_s = '1' report "Sensor B missing" severity failure;
+                else
+                    assert sensorB_s = '0' report "Unexpected sensor B" severity failure;
+                end if;
                 if cycle = 5 * STEP_CYCLES then
                     assert sensorA_s = '1' and sensorB_s = '1'
                         report "Both sensors must be active at the peak" severity failure;
-                    assert to_integer(unsigned(weight_s)) = expectedPeak_v
+                    assert conv_integer(weight_s) = expectedPeak_v
                         report "Incorrect alternating weight profile" severity failure;
                 end if;
             end loop;
@@ -100,7 +137,7 @@ begin
         check_product(0);
         check_product(1);
         report "All alternating flow checks passed" severity note;
-        stop;
+        done_s <= true;
         wait;
     end process;
 end simulation;
