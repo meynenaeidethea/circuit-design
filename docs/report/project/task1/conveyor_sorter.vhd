@@ -93,8 +93,8 @@ begin
                 measuredWeight_r <= previousWeight_r;
             end if;
 
-            -- Entry to REJECT_STATE starts the first of N active cycles.
-            -- Loading N-1 also handles N=1 without underflow or an extra cycle.
+            -- Первый из N тактов отбраковки начинается при входе в состояние.
+            -- Загрузка N-1 обеспечивает верную длительность и при N=1.
             if state_r = CHECK_STATE then
                 rejectCount_r <= REJECT_PULSE_CYCLES - 1;
             elsif state_r = REJECT_STATE and rejectCount_r /= 0 then

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Keep the report appendix identical to the tested project sources."""
+"""Синхронизация листингов отчёта с исходниками проекта."""
 import argparse
 from pathlib import Path
 

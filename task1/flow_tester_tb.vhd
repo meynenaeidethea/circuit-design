@@ -125,11 +125,11 @@ begin
         tick;
         tick;
         nRst_s <= '1';
-        -- Valid, invalid, valid: the next scheduled profile would be invalid.
+        -- Годное, брак, годное; следующим должен быть брак.
         for product in 0 to 2 loop
             check_product(product);
         end loop;
-        -- Reset must restore the valid-first sequence.
+        -- После сброса первым снова идёт годное изделие.
         nRst_s <= '0';
         tick;
         tick;

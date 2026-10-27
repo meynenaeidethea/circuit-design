@@ -15,7 +15,7 @@ end flow_tester;
 
 architecture rtl of flow_tester is
     signal stepCount_r : natural range 0 to STEP_CYCLES - 1 := STEP_CYCLES - 1;
-    -- Countdown 15..0 corresponds to logical profile positions 0..15.
+    -- Обратному счёту 15..0 соответствуют позиции профиля 0..15.
     signal position_r : natural range 0 to 15 := 15;
     signal rejectProduct_r : std_logic;
 begin
@@ -51,8 +51,8 @@ begin
             weight_o <= x"00";
         elsif rising_edge(clk_i) then
             if stepCount_r = 0 then
-                -- Decode the position being entered on this same edge.
-                -- Old countdown 14 means the next logical position is 2.
+                -- Выходы для позиции, в которую переходим на этом фронте.
+                -- При текущем счётчике 14 следующая позиция профиля равна 2.
                 if position_r >= 10 and position_r <= 14 then
                     sensorA_o <= '1';
                 else
@@ -90,7 +90,7 @@ begin
                 elsif position_r = 8 then
                     weight_o <= x"1E"; -- 30
                 else
-                    -- Empty positions are a real zero-weight stimulus.
+                    -- В пустых позициях вес равен нулю.
                     weight_o <= x"00";
                 end if;
             end if;

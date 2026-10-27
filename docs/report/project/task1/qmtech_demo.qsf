@@ -21,6 +21,6 @@ set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_RO
 set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
 set_global_assignment -name LAST_QUARTUS_VERSION "25.1std.0 Standard Edition"
 set_global_assignment -name NUM_PARALLEL_PROCESSORS 4
-# On-board LEDs have 1 kOhm series resistors (QMTECH V03 schematic).
+# Светодиоды подключены через резисторы 1 кОм (схема QMTECH V03).
 set_instance_assignment -name CURRENT_STRENGTH_NEW "4MA" -to conveyorLed_n_o
 set_instance_assignment -name CURRENT_STRENGTH_NEW "4MA" -to rejectLed_n_o

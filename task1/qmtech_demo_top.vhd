@@ -11,7 +11,7 @@ architecture structural of qmtech_demo_top is
     signal nRst_s : std_logic;
     signal weight_s : std_logic_vector(7 downto 0);
 begin
-    -- Asynchronous assertion, synchronous release shared by both modules.
+    -- Общий сброс: включение асинхронное, снятие по такту.
     reset_synchronizer : process(clk50_i, nRst_btn_i)
     begin
         if nRst_btn_i = '0' then

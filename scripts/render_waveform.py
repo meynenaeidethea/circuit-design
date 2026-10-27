@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plot named signals from a GHDL flow_tester_tb VCD (requires matplotlib)."""
+"""Построение диаграммы по VCD теста flow_tester_tb; нужен matplotlib."""
 import argparse
 from pathlib import Path
 import matplotlib
@@ -20,7 +20,7 @@ names = {
     base + 'reject_s': ('Reject', False),
     base + 'rejectpulses_s': ('Reject pulses', False),
 }
-# Resolve identifiers from the VCD header: adding a signal must not relabel data.
+# Имена из заголовка VCD не зависят от порядка сигналов.
 stack, identifiers = [], {}
 traces = {name: [] for name in names}
 time = 0.0
@@ -37,7 +37,7 @@ for line in lines:
     elif fields[0] == '$timescale':
         timing = fields[1:] if len(fields) > 1 else next(lines).split()
         units = {'fs': 1e-9, 'ps': 1e-6, 'ns': 1e-3, 'us': 1, 'ms': 1e3, 's': 1e6}
-        scale = float(timing[0]) * units[timing[1]]  # plot in microseconds
+        scale = float(timing[0]) * units[timing[1]]  # время в микросекундах
     elif fields[0] == '$var':
         name = '.'.join(stack + [fields[4]])
         if name in names:

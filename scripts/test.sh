@@ -15,7 +15,7 @@ for cycles in 1 2 3 8; do
 for cycles in 1 2 8; do
     "$ghdl" -r "${flags[@]}" flow_tester_tb -gSTEP_CYCLES="$cycles" --assert-level=error
  done
-# Invalid configuration must fail with the intended diagnostic.
+# Неверный диапазон должен вызвать ожидаемую ошибку.
 if "$ghdl" -r "${flags[@]}" conveyor_sorter -gWEIGHT_MIN=106 -gWEIGHT_MAX=95 --assert-level=error > invalid-range.log 2>&1; then
     echo 'ERROR: invalid weight range was accepted' >&2
     exit 1
