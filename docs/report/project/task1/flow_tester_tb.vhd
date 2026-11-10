@@ -9,6 +9,8 @@ end flow_tester_tb;
 architecture simulation of flow_tester_tb is
     constant CLOCK_PERIOD : time := 20 ns;
     constant REJECT_CYCLES : positive := 3;
+    -- На позиции 6 начинается спад. Следующие два фронта фиксируют вес и проверяют его.
+    constant FIRST_REJECT_CYCLE : positive := 6 * STEP_CYCLES + 2;
     signal done_s : boolean := false;
     signal clk_s : std_logic := '0';
     signal nRst_s : std_logic := '0';
@@ -78,25 +80,20 @@ begin
         end procedure;
 
         procedure check_product(productIndex : natural) is
-            variable expectedPeak_v : natural;
             variable position_v : natural;
             variable expectedWeight_v : natural;
+            constant IS_REJECTED : boolean := productIndex mod 2 = 1;
             type profile_type is array (0 to 15) of natural;
             constant VALID_PROFILE : profile_type := (0, 0, 20, 50, 80, 100, 98, 70, 30, 0, 0, 0, 0, 0, 0, 0);
             constant INVALID_PROFILE : profile_type := (0, 0, 20, 30, 60, 80, 78, 50, 30, 0, 0, 0, 0, 0, 0, 0);
         begin
-            if productIndex mod 2 = 0 then
-                expectedPeak_v := 100;
-            else
-                expectedPeak_v := 80;
-            end if;
             for cycle in 1 to 16 * STEP_CYCLES loop
                 tick;
                 position_v := (cycle / STEP_CYCLES) mod 16;
-                if productIndex mod 2 = 0 then
-                    expectedWeight_v := VALID_PROFILE(position_v);
-                else
+                if IS_REJECTED then
                     expectedWeight_v := INVALID_PROFILE(position_v);
+                else
+                    expectedWeight_v := VALID_PROFILE(position_v);
                 end if;
                 assert conv_integer(weight_s) = expectedWeight_v
                     report "Weight profile differs at a clock edge" severity failure;
@@ -110,11 +107,11 @@ begin
                 else
                     assert sensorB_s = '0' report "Unexpected sensor B" severity failure;
                 end if;
-                if cycle = 5 * STEP_CYCLES then
-                    assert sensorA_s = '1' and sensorB_s = '1'
-                        report "Both sensors must be active at the peak" severity failure;
-                    assert conv_integer(weight_s) = expectedPeak_v
-                        report "Incorrect alternating weight profile" severity failure;
+                if IS_REJECTED and cycle >= FIRST_REJECT_CYCLE
+                   and cycle < FIRST_REJECT_CYCLE + REJECT_CYCLES then
+                    assert reject_s = '1' report "Reject pulse missing at the expected edge" severity failure;
+                else
+                    assert reject_s = '0' report "Reject must be inactive outside the pulse window" severity failure;
                 end if;
             end loop;
             assert rejectPulses_s = (productIndex + 1) / 2

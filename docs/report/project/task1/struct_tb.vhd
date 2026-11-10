@@ -1,6 +1,5 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
-use IEEE.STD_LOGIC_UNSIGNED.ALL;
 
 entity struct_tb is
     generic (REJECT_CYCLES : positive := 3);
@@ -56,7 +55,18 @@ begin
             tick;
         end procedure;
 
-        procedure check_product(target_weight : natural; expected_reject : std_logic) is
+        procedure check_reject_pulse is
+        begin
+            for cycle in 1 to REJECT_CYCLES loop
+                assert reject_s = '1'
+                    report "Reject pulse ended before the configured duration" severity failure;
+                tick;
+            end loop;
+            assert reject_s = '0'
+                report "Reject pulse exceeded the configured duration" severity failure;
+        end procedure;
+
+        procedure check_product(target_weight : positive; expected_reject : std_logic) is
         begin
             weight_s <= IEEE.STD_LOGIC_ARITH.CONV_STD_LOGIC_VECTOR(target_weight, weight_s'length);
             sensorA_s <= '1';
@@ -73,14 +83,7 @@ begin
                 report "Product was classified incorrectly" severity failure;
 
             if expected_reject = '1' then
-                for cycle in 2 to REJECT_CYCLES loop
-                    tick;
-                    assert reject_s = '1'
-                        report "Reject pulse ended before the configured duration" severity failure;
-                end loop;
-                tick;
-                assert reject_s = '0'
-                    report "Reject pulse exceeded the configured duration" severity failure;
+                check_reject_pulse;
             else
                 tick;
                 assert reject_s = '0'
@@ -111,18 +114,14 @@ begin
         weight_s <= x"00";
         sensorA_s <= '1';
         sensorB_s <= '1';
-        tick;
+        -- Совместное срабатывание длится один такт, сразу при входе.
         tick;
         sensorA_s <= '0';
         sensorB_s <= '0';
         tick;
         assert reject_s = '0' report "Zero weight must pass through CHECK_STATE" severity failure;
         tick;
-        for cycle in 1 to REJECT_CYCLES loop
-            assert reject_s = '1' report "Zero weight must be rejected for exactly N cycles" severity failure;
-            tick;
-        end loop;
-        assert reject_s = '0' report "Zero-weight rejection did not end" severity failure;
+        check_reject_pulse;
         tick;
         tick;
         check_product(100, '0');
@@ -132,11 +131,25 @@ begin
         sensorA_s <= '1';
         tick;
         sensorA_s <= '0';
-        weight_s <= (others => '0');
+        weight_s <= x"64";
         tick;
         tick;
         assert reject_s = '0'
-            report "Measurement without center detection must not be completed" severity failure;
+            report "A pass without center detection must not produce a reject pulse" severity failure;
+
+        -- Сразу после неполного прохода идёт отдельное изделие весом 80.
+        -- Оставшийся между изделиями отсчёт 100 не должен быть зафиксирован.
+        weight_s <= x"50";
+        sensorA_s <= '1';
+        sensorB_s <= '1';
+        tick;
+        assert reject_s = '0' report "Reject asserted on entry" severity failure;
+        sensorA_s <= '0';
+        sensorB_s <= '0';
+        tick;
+        assert reject_s = '0' report "Reject asserted before classification" severity failure;
+        tick;
+        check_reject_pulse;
 
         reset_dut;
         weight_s <= x"50";

@@ -2,10 +2,19 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 
 entity qmtech_demo_top is
-    port (clk50_i : in std_logic; nRst_btn_i : in std_logic; conveyorLed_n_o : out std_logic; rejectLed_n_o : out std_logic);
+    port (
+        clk50_i         : in  std_logic;
+        nRst_btn_i      : in  std_logic;
+        conveyorLed_n_o : out std_logic;
+        rejectLed_n_o   : out std_logic
+    );
 end qmtech_demo_top;
 
 architecture structural of qmtech_demo_top is
+    -- При 50 МГц шаг профиля и импульс отбраковки длятся по 100 мс.
+    constant DEMO_STEP_CYCLES : positive := 5_000_000;
+    constant DEMO_REJECT_CYCLES : positive := 5_000_000;
+
     signal sensorA_s, sensorB_s, conveyorRun_s, reject_s : std_logic;
     signal resetSync_r : std_logic_vector(1 downto 0);
     signal nRst_s : std_logic;
@@ -24,11 +33,27 @@ begin
     nRst_s <= resetSync_r(1);
 
     flow_tester_inst : entity work.flow_tester
-        generic map (STEP_CYCLES => 5_000_000)
-        port map (clk_i => clk50_i, nRst_i => nRst_s, sensorA_o => sensorA_s, sensorB_o => sensorB_s, weight_o => weight_s);
+        generic map (STEP_CYCLES => DEMO_STEP_CYCLES)
+        port map (
+            clk_i     => clk50_i,
+            nRst_i    => nRst_s,
+            sensorA_o => sensorA_s,
+            sensorB_o => sensorB_s,
+            weight_o  => weight_s
+        );
+
     conveyor_sorter_inst : entity work.conveyor_sorter
-        generic map (REJECT_PULSE_CYCLES => 5_000_000)
-        port map (clk_i => clk50_i, nRst_i => nRst_s, sensorA_i => sensorA_s, sensorB_i => sensorB_s, weight_i => weight_s, conveyorRun_o => conveyorRun_s, reject_o => reject_s);
+        generic map (REJECT_PULSE_CYCLES => DEMO_REJECT_CYCLES)
+        port map (
+            clk_i         => clk50_i,
+            nRst_i        => nRst_s,
+            sensorA_i     => sensorA_s,
+            sensorB_i     => sensorB_s,
+            weight_i      => weight_s,
+            conveyorRun_o => conveyorRun_s,
+            reject_o      => reject_s
+        );
+
     conveyorLed_n_o <= not conveyorRun_s;
     rejectLed_n_o <= not reject_s;
 end structural;

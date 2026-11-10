@@ -29,10 +29,23 @@ architecture rtl of conveyor_sorter is
     signal rejectCount_r    : natural range 0 to REJECT_PULSE_CYCLES - 1;
     signal centerFlag_r     : std_logic;
 
+    signal sensorsClear_s : boolean;
+    signal atCenter_s     : boolean;
+    signal captureWeight_s : boolean;
+    signal weightValid_s   : boolean;
+
 begin
 
     assert WEIGHT_MIN <= WEIGHT_MAX
         report "WEIGHT_MIN must not exceed WEIGHT_MAX" severity failure;
+
+    sensorsClear_s <= sensorA_i = '0' and sensorB_i = '0';
+    atCenter_s <= sensorA_i = '1' and sensorB_i = '1';
+    captureWeight_s <= (weight_i < previousWeight_r and (centerFlag_r = '1' or atCenter_s))
+                       or (sensorsClear_s and centerFlag_r = '1')
+                       when state_r = MEASURE_STATE else false;
+    weightValid_s <= measuredWeight_r >= WEIGHT_MIN and measuredWeight_r <= WEIGHT_MAX
+                     when state_r = CHECK_STATE else false;
 
     state_transitions : process(clk_i, nRst_i)
     begin
@@ -45,14 +58,14 @@ begin
                         state_r <= MEASURE_STATE;
                     end if;
                 when MEASURE_STATE =>
-                    if weight_i < previousWeight_r
-                       and (centerFlag_r = '1' or (sensorA_i = '1' and sensorB_i = '1')) then
+                    if captureWeight_s then
                         state_r <= CHECK_STATE;
-                    elsif sensorA_i = '0' and sensorB_i = '0' and centerFlag_r = '1' then
-                        state_r <= CHECK_STATE;
+                    elsif sensorsClear_s then
+                        -- Изделие ушло, не достигнув центра.
+                        state_r <= WAIT_STATE;
                     end if;
                 when CHECK_STATE =>
-                    if measuredWeight_r >= WEIGHT_MIN and measuredWeight_r <= WEIGHT_MAX then
+                    if weightValid_s then
                         state_r <= WAIT_CLEAR_STATE;
                     else
                         state_r <= REJECT_STATE;
@@ -62,7 +75,7 @@ begin
                         state_r <= WAIT_CLEAR_STATE;
                     end if;
                 when WAIT_CLEAR_STATE =>
-                    if sensorA_i = '0' and sensorB_i = '0' then
+                    if sensorsClear_s then
                         state_r <= WAIT_STATE;
                     end if;
             end case;
@@ -77,33 +90,24 @@ begin
             rejectCount_r    <= 0;
             centerFlag_r     <= '0';
         elsif rising_edge(clk_i) then
-            if state_r = WAIT_STATE then
-                previousWeight_r <= weight_i;
-            elsif state_r = MEASURE_STATE
-               and not ((weight_i < previousWeight_r
-                         and (centerFlag_r = '1' or (sensorA_i = '1' and sensorB_i = '1')))
-                        or (sensorA_i = '0' and sensorB_i = '0' and centerFlag_r = '1')) then
-                previousWeight_r <= weight_i;
-            end if;
-
-            if state_r = MEASURE_STATE
-               and ((weight_i < previousWeight_r
-                     and (centerFlag_r = '1' or (sensorA_i = '1' and sensorB_i = '1')))
-                    or (sensorA_i = '0' and sensorB_i = '0' and centerFlag_r = '1')) then
+            if captureWeight_s then
                 measuredWeight_r <= previousWeight_r;
+            elsif state_r = WAIT_STATE or state_r = MEASURE_STATE then
+                previousWeight_r <= weight_i;
             end if;
 
             -- Первый из N тактов отбраковки начинается при входе в состояние.
             -- Загрузка N-1 обеспечивает верную длительность и при N=1.
-            if state_r = CHECK_STATE then
+            if state_r = CHECK_STATE and not weightValid_s then
                 rejectCount_r <= REJECT_PULSE_CYCLES - 1;
             elsif state_r = REJECT_STATE and rejectCount_r /= 0 then
                 rejectCount_r <= rejectCount_r - 1;
             end if;
 
             if state_r = WAIT_STATE then
-                centerFlag_r <= '0';
-            elsif state_r = MEASURE_STATE and sensorA_i = '1' and sensorB_i = '1' then
+                -- Оба датчика могут сработать уже на первом отсчёте изделия.
+                centerFlag_r <= sensorA_i and sensorB_i;
+            elsif state_r = MEASURE_STATE and atCenter_s then
                 centerFlag_r <= '1';
             end if;
         end if;

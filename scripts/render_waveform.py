@@ -1,24 +1,27 @@
 #!/usr/bin/env python3
 """Построение диаграммы по VCD теста flow_tester_tb; нужен matplotlib."""
 import argparse
+from bisect import bisect_right
 from pathlib import Path
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MultipleLocator
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('vcd', type=Path)
 parser.add_argument('output', type=Path)
+parser.add_argument('--detail', action='store_true', help='показать первый импульс крупным планом')
 args = parser.parse_args()
 base = 'flow_tester_tb.'
 names = {
-    base + 'nrst_s': ('nRst', False),
-    base + 'sensora_s': ('Sensor A', False),
-    base + 'sensorb_s': ('Sensor B', False),
-    base + 'weight_s[7:0]': ('Weight', True),
-    base + 'sorter_inst.measuredweight_r[7:0]': ('Measured', True),
-    base + 'reject_s': ('Reject', False),
-    base + 'rejectpulses_s': ('Reject pulses', False),
+    base + 'clk_s': 'Такт',
+    base + 'nrst_s': 'Сброс nRst',
+    base + 'sensora_s': 'Датчик A',
+    base + 'sensorb_s': 'Датчик B',
+    base + 'weight_s[7:0]': 'Вес на входе',
+    base + 'sorter_inst.measuredweight_r[7:0]': 'Зафикс. вес',
+    base + 'reject_s': 'Отбраковка',
 }
 # Имена из заголовка VCD не зависят от порядка сигналов.
 stack, identifiers = [], {}
@@ -52,19 +55,58 @@ for line in lines:
     elif line[0] in '01' and line[1:] in identifiers:
         traces[identifiers[line[1:]]].append((time, int(line[0])))
 assert all(traces.values()), 'Some requested signals were not recorded'
-fig, axes = plt.subplots(len(names), 1, figsize=(12, 7), sharex=True, layout='constrained')
-for ax, (name, (label, analog)) in zip(axes, names.items()):
+clock, reset, sensor_a, sensor_b, weight, measured, reject = names
+reject_edges = traces[reject]
+first_on = next(t for t, level in reject_edges if level == 1)
+first_off = next(t for t, level in reject_edges if t > first_on and level == 0)
+
+if args.detail:
+    shown = (clock, weight, measured, reject)
+    offset, scale = first_on, 1000
+    pulse_ns = round((first_off - first_on) * scale)
+    limits = (-60, pulse_ns + 30)
+    axis_label = 'Время относительно начала импульса, нс'
+else:
+    shown = (reset, sensor_a, sensor_b, weight, measured, reject)
+    offset, scale = 0, 1
+    limits = (0, time)
+    axis_label = 'Время, мкс'
+
+fig, axes = plt.subplots(len(shown), 1, figsize=(8, 0.57 * len(shown) + 0.6),
+                         sharex=True, layout='constrained')
+for ax, name in zip(axes, shown):
     values = traces[name] + [(time, traces[name][-1][1])]
-    ax.step(*zip(*values), where='post', lw=1.2, color='#173d5a')
-    ax.set_ylabel(label, rotation=0, ha='right', va='center', fontsize=10)
-    ax.grid(axis='x', color='#dddddd', linewidth=.5)
-    ax.spines[['top', 'right']].set_visible(False)
-    if analog:
-        ax.set_yticks([0, 80, 100]); ax.set_ylim(-8, 115)
+    times, levels = zip(*values)
+    plot_times = [(t - offset) * scale for t in times]
+    ax.step(plot_times, levels, where='post', lw=1.2, color='#173d5a')
+    ax.set_ylabel(names[name], rotation=0, ha='right', va='center', fontsize=10)
+    ax.grid(axis='x', color='#dddddd', linewidth=0.6)
+    ax.spines[['top', 'right', 'left']].set_visible(False)
+    ax.tick_params(axis='y', length=0, labelsize=8)
+    if name in (weight, measured):
+        if args.detail:
+            left = max(0, bisect_right(plot_times, limits[0]) - 1)
+            right = bisect_right(plot_times, limits[1])
+            visible = levels[left:right]
+            low, high = min(visible), max(visible)
+            padding = max(1, (high - low) * 0.2)
+            ax.set_yticks(sorted({low, high}))
+            ax.set_ylim(low - padding, high + padding)
+        else:
+            ax.set_yticks([0, 50, 100])
+            ax.set_ylim(-8, 114)
     else:
-        ax.set_yticks([0, 1]); ax.set_ylim(-.15, 1.2)
-axes[0].set_title('GHDL: flow_tester_tb, STEP_CYCLES=8, REJECT_CYCLES=3', fontsize=12)
-axes[-1].set_xlabel('Time, us')
-axes[-1].set_xlim(0, time)
-fig.savefig(args.output, dpi=200)
+        ax.set_yticks([0, 1])
+        ax.set_ylim(-0.2, 1.3)
+    if args.detail:
+        ax.axvspan(0, pulse_ns, color='#dce8ee', zorder=0)
+
+if args.detail:
+    axes[-1].xaxis.set_major_locator(MultipleLocator(20))
+    axes[-1].text(pulse_ns / 2, 0.36, f'{pulse_ns} нс', ha='center', fontsize=10)
+else:
+    axes[-1].xaxis.set_major_locator(MultipleLocator(1))
+axes[-1].set_xlabel(axis_label)
+axes[-1].set_xlim(*limits)
+fig.savefig(args.output, dpi=220)
 plt.close(fig)
