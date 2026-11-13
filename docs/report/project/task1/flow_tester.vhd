@@ -57,9 +57,12 @@ begin
                 stepCount_r <= STEP_CYCLES - 1;
                 if nextPosition_r = 0 then
                     nextPosition_r <= LAST_POSITION;
-                    rejectProduct_r <= not rejectProduct_r;
                 else
                     nextPosition_r <= nextPosition_r - 1;
+                end if;
+
+                if nextPosition_r = 0 then
+                    rejectProduct_r <= not rejectProduct_r;
                 end if;
             else
                 stepCount_r <= stepCount_r - 1;
